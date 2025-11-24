@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.1] 2025-11-24
+
 ### Added
 - Restored backward-compatible alias `AioSonicBaseClient` for `BaseClient`, emitting a
   `DeprecationWarning` and scheduled for removal in the first 1.x release.
@@ -381,7 +383,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - https
 
 
-[Unreleased]: https://github.com/sonic182/aiosonic/compare/0.30.0..HEAD
+[Unreleased]: https://github.com/sonic182/aiosonic/compare/0.30.1..HEAD
+[0.30.1]: https://github.com/sonic182/aiosonic/compare/0.30.0..0.30.1
 [0.30.0]: https://github.com/sonic182/aiosonic/compare/0.29.0..0.30.0
 [0.29.0]: https://github.com/sonic182/aiosonic/compare/0.28.0..0.29.0
 [0.28.0]: https://github.com/sonic182/aiosonic/compare/0.27.0..0.28.0
