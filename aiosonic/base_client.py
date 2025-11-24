@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional
 
 from aiosonic.client import HTTPClient
@@ -58,3 +59,16 @@ class BaseClient:
 
     async def delete(self, url: str, **kwargs):
         return await self.request("DELETE", url, **kwargs)
+
+
+class AioSonicBaseClient(BaseClient):
+    """Backward-compatible alias for BaseClient with a deprecation warning."""
+
+    def __init__(self, http_client: Optional[HTTPClient] = None):
+        warnings.warn(
+            "AioSonicBaseClient is deprecated and will be removed in 1.x.x releases. "
+            "Use BaseClient instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(http_client=http_client)

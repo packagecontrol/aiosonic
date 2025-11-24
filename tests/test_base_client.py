@@ -1,6 +1,6 @@
 import pytest
 
-from aiosonic import BaseClient
+from aiosonic import AioSonicBaseClient, BaseClient
 
 
 @pytest.mark.asyncio
@@ -27,3 +27,7 @@ async def test_wrapper_delete_http_serv(http_serv):
     response = await client.delete("/delete")
     assert response.status_code == 200
     assert (await response.text()).strip() == "deleted"
+
+
+def test_legacy_alias_import():
+    assert issubclass(AioSonicBaseClient, BaseClient)

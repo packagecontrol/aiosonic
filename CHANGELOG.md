@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Restored backward-compatible alias `AioSonicBaseClient` for `BaseClient`, emitting a
+  `DeprecationWarning` and scheduled for removal in the first 1.x release.
+
 ## [0.30.0] 2025-11-18
 
 ### Changed
@@ -47,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Better handling of follow redirects with more 3XX codes coverage
+
+### Changed
+- Renamed `AioSonicBaseClient` to `BaseClient`
 
 ## [0.24.0] 2025-03-11
 
