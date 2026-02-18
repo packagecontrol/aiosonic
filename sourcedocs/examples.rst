@@ -63,6 +63,29 @@ Concurrent Requests
  loop.run_until_complete(main())
 
 
+HTTP/2 request
+==============
+
+Enable HTTP/2 in the client by passing ``http2=True``.
+
+.. code-block::  python
+
+ import asyncio
+ import aiosonic
+
+
+ async def main():
+     async with aiosonic.HTTPClient(http2=True) as client:
+         response = await client.get("https://nghttp2.org/httpbin/get")
+         assert response.status_code == 200
+         payload = await response.json()
+         print(payload["url"])
+
+
+ if __name__ == "__main__":
+     asyncio.run(main())
+
+
 Api Wrapping
 ============
 
