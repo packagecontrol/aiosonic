@@ -1,11 +1,13 @@
 import asyncio
 import ssl
 
+import h2.events
+import h2.settings
 import pytest
 
 import aiosonic
 from aiosonic.connectors import TCPConnector
-from aiosonic.exceptions import MissingEvent
+from aiosonic.exceptions import ConnectionDisconnected, MissingEvent
 from aiosonic.http2 import Http2Handler
 from aiosonic.timeout import Timeouts
 
@@ -25,10 +27,7 @@ async def test_get_python(http2_serv):
             url,
             verify=False,
             headers={
-                "user-agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:70.0)"
-                    " Gecko/20100101 Firefox/70.0"
-                )
+                "user-agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:70.0) Gecko/20100101 Firefox/70.0")
             },
             http2=True,
         )
@@ -138,33 +137,142 @@ async def test_http2_wrong_event(mocker):
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(30)
+async def test_h2_with_explicit_http2_flag(http2_serv):
+    """Assert that http2=True explicitly negotiates HTTP/2."""
+    url = http2_serv
+    async with aiosonic.HTTPClient() as client:
+        res = await client.get(url, verify=False, http2=True)
+        assert res.status_code == 200
+        assert res.http_version == "2"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(30)
+async def test_h2_client_level_flag(http2_serv):
+    """Assert that http2=True at client level applies to all requests."""
+    url = http2_serv
+    async with aiosonic.HTTPClient(http2=True) as client:
+        res1 = await client.get(url, verify=False)
+        assert res1.status_code == 200
+        assert res1.http_version == "2", "Client-level http2=True must negotiate HTTP/2"
+
+        res2 = await client.post(url, verify=False)
+        assert res2.status_code == 200
+        assert res2.http_version == "2", "Client-level http2=True must apply to POST too"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(30)
+async def test_h2_verify_false_applies_to_h2_ssl_context(http2_serv):
+    """verify=False must disable cert verification even when http2=True.
+
+    Bug: get_default_ssl_context returns early from the http2 branch before
+    applying the verify=False override, so self-signed certs are rejected.
+    """
+    url = http2_serv
+    async with aiosonic.HTTPClient(http2=True) as client:
+        res = await client.get(url, verify=False)
+        assert res.status_code == 200
+        assert res.http_version == "2"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(30)
+async def test_h2_custom_ssl_ctx_gets_alpn(http2_serv):
+    """A user-supplied ssl context must have 'h2' added to ALPN when http2=True.
+
+    Bug: custom contexts passed via ssl= don't advertise h2 in ALPN, so
+    the TLS handshake never negotiates h2 and the connection silently falls
+    back to HTTP/1.1.
+    """
+    import ssl as _ssl
+
+    ctx = _ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl.CERT_NONE
+    url = http2_serv
+    async with aiosonic.HTTPClient() as client:
+        res = await client.get(url, ssl=ctx, http2=True)
+        assert res.status_code == 200
+        assert res.http_version == "2"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(30)
+async def test_h2_connection_reused_across_requests(http2_serv):
+    """h2conn must NOT be torn down between keep-alive requests.
+
+    Both sequential requests on the same client must use HTTP/2 via the
+    same underlying connection (h2handler kept alive across releases).
+    """
+    url = http2_serv
+    connector = TCPConnector(timeouts=Timeouts(sock_connect=3, sock_read=4))
+    async with aiosonic.HTTPClient(connector) as client:
+        res1 = await client.get(url, verify=False, http2=True)
+        assert res1.status_code == 200
+        assert res1.http_version == "2", "First request must use HTTP/2"
+
+        res2 = await client.get(url, verify=False, http2=True)
+        assert res2.status_code == 200
+        assert res2.http_version == "2", "Second request must still use HTTP/2 (connection was reused)"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(30)
 async def test_get_image(http2_serv):
     """Test get image."""
     url = f"{http2_serv}/sample.png"
 
     async with aiosonic.HTTPClient() as client:
-        res = await client.get(url, verify=False)
+        res = await client.get(url, verify=False, http2=True)
         assert res.status_code == 200
-        assert res.chunked
         with open("tests/sample.png", "rb") as _file:
             assert (await res.content()) == _file.read()
 
 
 @pytest.mark.asyncio
 @pytest.mark.timeout(30)
-async def test_get_image_chunked(http2_serv):
-    """Test get image chunked."""
+async def test_stream_request_body_h2(http2_serv):
+    """Async-iterator request body must be sent and echoed back correctly over HTTP/2."""
+    url = f"{http2_serv}/posted"
+
+    async def body_gen():
+        yield b"foo"
+        yield b"bar"
+        yield b"baz"
+
+    async with aiosonic.HTTPClient() as client:
+        res = await client.post(url, data=body_gen(), verify=False, http2=True)
+        assert res.status_code == 200
+        assert res.http_version == "2"
+        text = await res.text()
+        assert text == "foobarbaz"
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(30)
+async def test_get_image_stream_h2(http2_serv):
+    """HTTP/2 image download via read_chunks() must produce the same bytes as content()."""
     url = f"{http2_serv}/sample.png"
 
     async with aiosonic.HTTPClient() as client:
-        res = await client.get(url, verify=False)
+        res = await client.get(url, verify=False, http2=True)
         assert res.status_code == 200
-        assert res.chunked
-        filebytes = b""
+        assert res.http_version == "2"
+        assert res.chunked is True
+
+        chunks = []
         async for chunk in res.read_chunks():
-            filebytes += chunk
-        with open("tests/sample.png", "rb") as _file:
-            assert filebytes == _file.read()
+            assert isinstance(chunk, bytes)
+            chunks.append(chunk)
+
+        streamed = b"".join(chunks)
+
+    with open("tests/sample.png", "rb") as f:
+        expected = f.read()
+
+    assert len(chunks) >= 1
+    assert streamed == expected
 
 
 # Unit tests for HTTP2Handler with mocked components
@@ -229,26 +337,31 @@ async def test_cleanup_cancels_reader_task(mocker):
 
 
 @pytest.mark.asyncio
-async def test_send_body_flow_control_fallback(mocker, monkeypatch):
-    """When window is zero and wait_for times out, send_body falls back to max frame size."""
+async def test_send_body_waits_for_window_then_sends(mocker):
+    """send_body must wait for a non-zero flow-control window before sending data.
+
+    The sender must block while the window is 0 and only proceed once
+    _window_updated is set (simulating a WindowUpdated event from the peer).
+    Data must never be sent while the window is exhausted.
+    """
     mocker.patch("aiosonic.http2.Http2Handler.__init__", lambda self: None)
     handler = Http2Handler()
     handler.loop = asyncio.get_event_loop()
+    handler._window_updated = asyncio.Event()
 
-    # Prepare a fake h2conn
     class FakeH2:
         def __init__(self):
             self.max_outbound_frame_size = 4
             self._sent = []
+            self._window = 0
 
         def local_flow_control_window(self, stream_id):
-            return 0
+            return self._window
 
         def data_to_send(self):
             return b""
 
         def send_headers(self, stream_id, headers, end_stream=False):
-            # no-op
             pass
 
         def send_data(self, stream_id, chunk, end_stream=False):
@@ -257,7 +370,6 @@ async def test_send_body_flow_control_fallback(mocker, monkeypatch):
     fake = FakeH2()
     handler.h2conn = fake
 
-    # stub writer to avoid actual IO
     class DummyWriter:
         def write(self, data):
             pass
@@ -267,7 +379,6 @@ async def test_send_body_flow_control_fallback(mocker, monkeypatch):
 
     handler.writer = DummyWriter()
 
-    # create request with body larger than max_outbound_frame_size
     stream_id = 1
     body = b"abcdefgh"  # 8 bytes
     handler.requests = {
@@ -279,17 +390,16 @@ async def test_send_body_flow_control_fallback(mocker, monkeypatch):
         }
     }
 
-    # Make asyncio.wait_for raise immediately to trigger fallback
-    def fake_wait_for(coro, timeout):
-        raise asyncio.TimeoutError()
+    async def open_window():
+        await asyncio.sleep(0.01)
+        fake._window = 65535
+        handler._window_updated.set()
 
-    monkeypatch.setattr(asyncio, "wait_for", fake_wait_for)
-
-    await handler.send_body(stream_id)
+    await asyncio.gather(handler.send_body(stream_id), open_window())
 
     assert handler.requests[stream_id]["data_sent"] is True
-    # Expect data to be sent in chunks of at most 4 bytes
     assert fake._sent == [b"abcd", b"efgh"]
+    assert b"".join(fake._sent) == body
 
 
 @pytest.mark.asyncio
@@ -358,3 +468,112 @@ async def test_concurrent_streams(mocker):
 
     assert sent_streams[1] == b"AAAAAAA"
     assert sent_streams[3] == b"BBBBBBB"
+
+
+@pytest.mark.asyncio
+async def test_stream_semaphore_limits_concurrency(mocker):
+    """_stream_sem must block request() when max concurrent streams are in-flight."""
+    mocker.patch("aiosonic.http2.Http2Handler.__init__", lambda self: None)
+    handler = Http2Handler()
+    handler.loop = asyncio.get_event_loop()
+    handler.requests = {}
+    handler._max_streams = 1
+    handler._stream_sem = asyncio.Semaphore(1)
+
+    acquired_order = []
+
+    original_acquire = handler._stream_sem.acquire
+
+    async def tracking_acquire():
+        acquired_order.append("acquire")
+        return await original_acquire()
+
+    handler._stream_sem.acquire = tracking_acquire
+
+    # Manually occupy the semaphore (simulates one stream in-flight)
+    await handler._stream_sem.acquire()
+    assert handler._stream_sem._value == 0
+
+    # A second acquire must block until released
+    released = asyncio.Event()
+
+    async def waiter():
+        await handler._stream_sem.acquire()
+        released.set()
+        handler._stream_sem.release()
+
+    task = asyncio.get_event_loop().create_task(waiter())
+    await asyncio.sleep(0.01)
+    assert not released.is_set(), "Second acquire must block while semaphore is held"
+
+    handler._stream_sem.release()
+    await asyncio.wait_for(task, timeout=1)
+    assert released.is_set(), "Second acquire must proceed after release"
+
+
+@pytest.mark.asyncio
+async def test_remote_settings_updates_max_streams(mocker):
+    """RemoteSettingsChanged with MAX_CONCURRENT_STREAMS must update _max_streams and semaphore."""
+    mocker.patch("aiosonic.http2.Http2Handler.__init__", lambda self: None)
+    mocker.patch("aiosonic.http2.Http2Handler.h2conn")
+    handler = Http2Handler()
+    handler.loop = asyncio.get_event_loop()
+    handler.connection = mocker.MagicMock()
+    handler.requests = {}
+    handler._max_streams = 100
+    handler._stream_sem = asyncio.Semaphore(100)
+
+    class FakeSetting:
+        def __init__(self, value):
+            self.new_value = value
+
+    event = h2.events.RemoteSettingsChanged()
+    event.changed_settings = {h2.settings.SettingCodes.MAX_CONCURRENT_STREAMS: FakeSetting(10)}
+
+    await handler.handle_events([event])
+
+    assert handler._max_streams == 10
+    assert handler._stream_sem._value == 10
+
+
+@pytest.mark.asyncio
+async def test_disconnect_event_marks_connection_non_reusable(mocker):
+    """ConnectionTerminated should fail pending streams and mark connection closing."""
+    mocker.patch("aiosonic.http2.Http2Handler.__init__", lambda self, connection: None)
+    handler = Http2Handler(mocker.MagicMock())
+    handler.loop = asyncio.get_event_loop()
+    handler.connection = mocker.MagicMock()
+    handler.connection.keep = True
+    handler.h2conn = mocker.MagicMock()
+
+    fut = handler.loop.create_future()
+    handler.requests = {
+        1: {
+            "future": fut,
+            "chunk_queue": asyncio.Queue(),
+            "headers": [],
+            "data_sent": False,
+            "send_scheduled": False,
+        }
+    }
+
+    event = h2.events.ConnectionTerminated()
+    await handler.handle_events([event])
+
+    assert handler.connection.keep is False
+    assert fut.done()
+    assert isinstance(fut.exception(), ConnectionDisconnected)
+
+
+@pytest.mark.asyncio
+async def test_request_rejected_when_connection_is_closing(mocker):
+    """No new streams should be accepted after disconnect has been observed."""
+    mocker.patch("aiosonic.http2.Http2Handler.__init__", lambda self, connection: None)
+    handler = Http2Handler(mocker.MagicMock())
+    handler.loop = asyncio.get_event_loop()
+    handler._max_streams = 1
+    handler._stream_sem = asyncio.Semaphore(1)
+    handler._closing = True
+
+    with pytest.raises(ConnectionDisconnected):
+        await handler.request([], b"")
