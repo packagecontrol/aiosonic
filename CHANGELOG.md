@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] 2026-02-18
+
+### Added
+- Automatic `Http2MultiplexPool` selection when `http2=True`, including connector/client integration improvements for HTTP/2 usage.
+- New HTTP benchmarking utilities: `scripts/http_benchmark_server.mjs` and `scripts/performance_http11_vs_http2.py`.
+
+### Changed
+- Standardized linting/formatting on Ruff (replacing Black/pytest-black) and updated project/test configuration accordingly.
+- Refined HTTP/2 client internals for stream management, multiplexing behavior, keep-alive handling, and file download streaming.
+- Expanded HTTP/2 test coverage and updated CI lint scope.
+
+### Fixed
+- Ensured custom SSL contexts advertise ALPN `h2` when HTTP/2 is enabled.
+- Corrected HTTP/2 flow-control send behavior to wait for available window capacity instead of sending on zero window.
+- Improved HTTP/2 disconnect lifecycle so pending/new streams fail cleanly during shutdown paths.
+- Fixed empty HTTP/2 response bodies on Python 3.10 when response/data/end events arrive in the same batch.
+- Corrected package classifier metadata in `pyproject.toml`.
+
 ## [0.30.1] 2025-11-24
 
 ### Added
@@ -383,7 +401,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - https
 
 
-[Unreleased]: https://github.com/sonic182/aiosonic/compare/0.30.1..HEAD
+[Unreleased]: https://github.com/sonic182/aiosonic/compare/0.31.0..HEAD
+[0.31.0]: https://github.com/sonic182/aiosonic/compare/0.30.1..0.31.0
 [0.30.1]: https://github.com/sonic182/aiosonic/compare/0.30.0..0.30.1
 [0.30.0]: https://github.com/sonic182/aiosonic/compare/0.29.0..0.30.0
 [0.29.0]: https://github.com/sonic182/aiosonic/compare/0.28.0..0.29.0
