@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Updated `onecache` dependency to `^0.8.1` so dependency resolution works with unrestricted project Python range.
+
 ## [0.31.0] 2026-02-18
 
 ### Added
