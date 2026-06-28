@@ -1,5 +1,4 @@
 ![github status](https://github.com/sonic182/aiosonic/actions/workflows/python.yml/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/sonic182/aiosonic/badge.svg?branch=master)](https://coveralls.io/github/sonic182/aiosonic?branch=master)
 [![PyPI version](https://badge.fury.io/py/aiosonic.svg)](https://badge.fury.io/py/aiosonic)
 [![Documentation Status](https://readthedocs.org/projects/aiosonic/badge/?version=latest)](https://aiosonic.readthedocs.io/en/latest/?badge=latest)
 
@@ -25,7 +24,7 @@ For full documentation, please see [aiosonic docs](https://aiosonic.readthedocs.
 - Sessions with cookie persistence
 - Elegant key/value cookies
 - (Nearly) 100% test coverage
-- HTTP/2 (BETA; enabled with a flag)
+- HTTP/2 (enabled with a flag)
 
 ## Requirements
 
@@ -122,6 +121,40 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+## HTTP/2 Usage
+
+HTTP/2 requires HTTPS. Enable it at the client level or per-request.
+
+**Client-level** (all requests use HTTP/2):
+
+```python
+import asyncio
+import aiosonic
+
+async def run():
+    client = aiosonic.HTTPClient(http2=True)
+    response = await client.get("https://http2.golang.org/reqinfo")
+    assert response.status_code == 200
+    print(await response.text())
+
+asyncio.run(run())
+```
+
+**Per-request** (opt in for a single call):
+
+```python
+import asyncio
+import aiosonic
+
+async def run():
+    client = aiosonic.HTTPClient()
+    response = await client.get("https://http2.golang.org/reqinfo", http2=True)
+    assert response.status_code == 200
+    print(await response.text())
+
+asyncio.run(run())
+```
+
 ## Api Wrapping
 
 You can easily wrap APIs with `BaseClient` and override its hooks to customize the response handling.
@@ -215,10 +248,13 @@ aiosonic is -1.38% faster than aiosonic cyclic
 > **Note:**  
 > These benchmarks are basic and machine-dependent. They are intended as a rough comparison.
 
+## HTTP/2 Known Limitations
+
+- **Server push not supported** — push promise frames are silently ignored (`PushPromiseReceived`, `PushedStreamReset`, `PushedStreamClosed`).
+- **No cleartext HTTP/2 (`h2c`)** — HTTP/2 requires TLS. This matches RFC 7540 §3.3 browser requirements and is intentional.
+
 ## [TODO's](https://github.com/sonic182/aiosonic/projects/1)
 
-- **HTTP/2:**
-  - [ ] Stable HTTP/2 release
 - Better documentation
 - International domains and URLs (IDNA + cache)
 - Basic/Digest authentication
