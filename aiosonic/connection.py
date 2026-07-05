@@ -237,7 +237,7 @@ class Connection:
         if not (conn_key and key == conn_key and not is_closing() and self.__max_cons_made()):
             self.close()
 
-            if urlparsed.scheme in ["https", "wss"]:
+            if urlparsed.scheme in ("https", "wss"):
                 ssl_context = ssl_context or get_default_ssl_context(verify, http2)
                 if http2 and ssl_context:
                     try:
@@ -246,7 +246,7 @@ class Connection:
                         pass
             else:
                 del dns_info_copy["server_hostname"]
-            port = urlparsed.port or (443 if urlparsed.scheme in ["https", "ws"] else 80)
+            port = urlparsed.port or (443 if urlparsed.scheme in ("https", "wss") else 80)
             dns_info_copy["port"] = port
 
             self.reader, self.writer = await open_connection(**dns_info_copy, ssl=ssl_context)
