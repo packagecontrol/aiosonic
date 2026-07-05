@@ -1,5 +1,6 @@
 """Connection stuffs."""
 
+from __future__ import annotations
 import asyncio
 import ssl
 import time
