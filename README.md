@@ -6,10 +6,14 @@
 
 A very fast, lightweight Python asyncio HTTP/1.1, HTTP/2, and WebSocket client.
 
+> [!NOTE]
+>
+> This repository provides backport for Sublime Text's python 3.8 plugin environment.
 
-The repository is hosted on [GitHub](https://github.com/sonic182/aiosonic).
+The original repository is hosted on [GitHub](https://github.com/sonic182/aiosonic).
 
 For full documentation, please see [aiosonic docs](https://aiosonic.readthedocs.io/en/latest/).
+
 
 ## Features
 
@@ -26,15 +30,27 @@ For full documentation, please see [aiosonic docs](https://aiosonic.readthedocs.
 - (Nearly) 100% test coverage
 - HTTP/2 (enabled with a flag)
 
-## Requirements
-
-- Python >= 3.10 (or PyPy 3.11+)
 
 ## Installation
 
-```bash
-pip install aiosonic
+To include aiosonic into a package, create a `depencencies.json` with
+
+```json
+{
+	"*": {
+		"*": [
+			"aiosonic",
+			"charset_normalizer",
+			"h2",
+			"hpack",
+			"hyperframe",
+			"onecache",
+			"sublime_aio"
+		]
+	}
+}
 ```
+
 
 ## Getting Started
 
@@ -222,73 +238,7 @@ g2 = GitHubAPI()
 gh == gh2
 ```
 
-## Benchmarks
-
-A simple performance benchmark script is included in the `tests` folder. For example:
-
-```bash
-python scripts/performance.py
-```
-
-Example output:
-
-```json
-{
-  "aiohttp": "5000 requests in 558.31 ms",
-  "aiosonic": "5000 requests in 563.95 ms",
-  "requests": "5000 requests in 10306.90 ms",
-  "aiosonic_cyclic": "5000 requests in 642.15 ms",
-  "httpx": "5000 requests in 7920.04 ms"
-}
-```
-
-aiosonic is 1457.99% faster than requests
-aiosonic is -1.38% faster than aiosonic cyclic
-
-> **Note:**  
-> These benchmarks are basic and machine-dependent. They are intended as a rough comparison.
-
-## HTTP/2 Known Limitations
-
-- **Server push not supported** — push promise frames are silently ignored (`PushPromiseReceived`, `PushedStreamReset`, `PushedStreamClosed`).
-- **No cleartext HTTP/2 (`h2c`)** — HTTP/2 requires TLS. This matches RFC 7540 §3.3 browser requirements and is intentional.
-
-## [TODO's](https://github.com/sonic182/aiosonic/projects/1)
-
-- Better documentation
-- International domains and URLs (IDNA + cache)
-- Basic/Digest authentication
-
-## Development
-
-Install development dependencies with Poetry:
-
-```bash
-poetry install
-```
-
-It is recommended to install Poetry in a separate virtual environment (via apt, pacman, etc.) rather than in your development environment. You can configure Poetry to use an in-project virtual environment by running:
-
-```bash
-poetry config virtualenvs.in-project true
-```
-
-### Running Tests
-
-```bash
-poetry run pytest
-```
 
 ## Contributing
 
-1. Fork the repository.
-2. Create a branch named `feature/your_feature`.
-3. Commit your changes, push, and submit a pull request.
-
-Thanks for contributing!
-
-## Contributors
-
-<a href="https://github.com/sonic182/aiosonic/graphs/contributors">
- <img src="https://contributors-img.web.app/image?repo=sonic182/aiosonic" alt="Contributors" />
-</a>
+For general features or fixes, contribute to [original repository](https://github.com/sonic182/aiosonic).

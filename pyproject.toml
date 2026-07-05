@@ -21,6 +21,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -36,7 +38,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10.0"
+python = ">=3.8.0"
 charset-normalizer = ">=2.0.0,<4.0.0"
 h2 = "^4.1.0"
 onecache = "^0.8.1"
