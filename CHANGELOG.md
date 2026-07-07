@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] 2026-07-07
+
+### Fixed
+- Corrected TLS WebSocket default port selection so secure `wss` connections use port `443` (thanks to @deathaxe).
+- Added regression coverage for TLS scheme/port selection in connection setup and HTTP/2 pool host keys.
+
 ## [1.0.0] 2026-06-28
 
 ### Added
@@ -422,7 +428,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - https
 
 
-[Unreleased]: https://github.com/sonic182/aiosonic/compare/1.0.0..HEAD
+[Unreleased]: https://github.com/sonic182/aiosonic/compare/1.0.1..HEAD
+[1.0.1]: https://github.com/sonic182/aiosonic/compare/1.0.0..1.0.1
 [1.0.0]: https://github.com/sonic182/aiosonic/compare/0.31.1..1.0.0
 [0.31.1]: https://github.com/sonic182/aiosonic/compare/0.31.0..0.31.1
 [0.31.0]: https://github.com/sonic182/aiosonic/compare/0.30.1..0.31.0
