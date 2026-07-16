@@ -7,10 +7,10 @@ import os
 import re
 import sys
 from asyncio import wait_for
+from charset_normalizer import detect
 from codecs import lookup
 from copy import deepcopy
 from functools import partial
-from gzip import decompress as gzip_decompress
 from http import cookies
 from io import IOBase
 from json import dumps as json_dumps
@@ -20,9 +20,17 @@ from random import randint
 from ssl import SSLContext
 from typing import AsyncIterator, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import ParseResult, urlencode, urljoin
-from zlib import decompress as zlib_decompress
 
-from charset_normalizer import detect
+if sys.version_info[:2] >= (3, 14):
+    from compression.bz2 import decompress as bzip2_decompress
+    from compression.gzip import decompress as gzip_decompress
+    from compression.zlib import decompress as deflate_decompress
+    from compression.zstd import decompress as zstd_decompress
+else:
+    from bz2 import decompress as bzip2_decompress
+    from gzip import decompress as gzip_decompress
+    from zlib import decompress as deflate_decompress
+    zstd_decompress = None
 
 from aiosonic import http_parser
 from aiosonic.connection import Connection, get_default_ssl_context
@@ -59,6 +67,12 @@ RANDOM_RANGE = (10**8, 10**9)
 
 REPLACEABLE_HEADERS = {"host", "user-agent"}
 
+DECOMPRESSORS = {
+    "bzip2": bzip2_decompress,
+    "deflate": deflate_decompress,
+    "gzip": gzip_decompress,
+    "zstd": zstd_decompress,
+}
 
 # Classes
 
@@ -97,11 +111,11 @@ class HttpResponse:
         self.raw_headers = []
         self.body = b""
         self.response_initial = {}
-        self._connection = None
         self.chunked = False
-        self.compressed = b""
         self.chunks_readed = False
         self.request_meta = {}
+        self._connection = None
+        self._decompress = None
         self._h2_chunk_queue = None
         self._h2_sem_release = None
         self._h2_flow_cb = None
@@ -125,6 +139,8 @@ class HttpResponse:
             # set cookies in response
             if header_tuple[0].lower() == "set-cookie":
                 self._update_cookies(header_tuple)
+
+        self._decompress = DECOMPRESSORS.get(self.headers.get("content-encoding", "").lower())
 
         if dlogger.level == logging.DEBUG:
 
@@ -170,10 +186,8 @@ class HttpResponse:
 
     def _set_body(self, data):
         """Set body."""
-        if self.compressed == "gzip":
-            self.body += gzip_decompress(data)
-        elif self.compressed == "deflate":
-            self.body += zlib_decompress(data)
+        if self._decompress is not None:
+            self.body += self._decompress(data)
         else:
             self.body += data
 
@@ -552,7 +566,6 @@ async def _do_request(
         size = response.headers.get("content-length")
         chunked = response.headers.get("transfer-encoding", "") == "chunked"
         keepalive = "close" not in response.headers.get("connection", "")
-        response.compressed = response.headers.get("content-encoding", "")
 
         if size:
             response._set_body(await connection.readexactly(int(size)))
