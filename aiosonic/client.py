@@ -140,8 +140,6 @@ class HttpResponse:
             if header_tuple[0].lower() == "set-cookie":
                 self._update_cookies(header_tuple)
 
-        self._decompress = DECOMPRESSORS.get(self.headers.get("content-encoding", "").lower())
-
         if dlogger.level == logging.DEBUG:
 
             def logparse(data):
@@ -562,6 +560,9 @@ async def _do_request(
 
         # reading headers
         await response._set_response_headers(http_parser.parse_headers_iterator(connection))
+
+        encoding = response.headers.get("content-encoding", "").lower()
+        response._decompress = DECOMPRESSORS.get(encoding)
 
         size = response.headers.get("content-length")
         chunked = response.headers.get("transfer-encoding", "") == "chunked"
