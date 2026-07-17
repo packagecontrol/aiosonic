@@ -21,7 +21,7 @@ from ssl import SSLContext
 from typing import AsyncIterator, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import ParseResult, urlencode, urljoin
 
-if sys.version_info[:2] >= (3, 14):
+if sys.version_info >= (3, 14):
     from compression.bz2 import decompress as bzip2_decompress
     from compression.gzip import decompress as gzip_decompress
     from compression.zlib import decompress as deflate_decompress
